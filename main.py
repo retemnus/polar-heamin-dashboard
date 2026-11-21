@@ -16,7 +16,6 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-env_file = st.sidebar.file_uploader("환경 CSV", type="csv")
 growth_file = st.sidebar.file_uploader("생육 CSV", type="csv")
 
 def read_csv(file):
@@ -84,15 +83,12 @@ def load_csv(file):
         return pd.DataFrame()
     return std_cols(read_csv(file))
 
-env_df = pd.DataFrame()
 growth_df = pd.DataFrame()
-
-if env_file is not None or growth_file is not None:
-    with st.spinner("CSV 파일을 읽는 중..."):
-        env_df = load_csv(env_file)
+if growth_file is not None:
+    with st.spinner("생육 CSV를 읽는 중..."):
         growth_df = load_csv(growth_file)
 else:
-    st.info("사이드바에서 환경·생육 CSV 파일을 업로드해 주세요.")
+    st.info("사이드바에서 생육 CSV 파일을 업로드해 주세요.")
 
 school_name = growth_file.name.split(".")[0] if growth_file is not None else ""
 
