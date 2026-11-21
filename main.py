@@ -155,9 +155,6 @@ else:
                 st.metric("평균 지상부 길이", f"{avg_shoot:.2f} mm")
             with c4:
                 st.metric("평균 지하부 길이", f"{avg_root:.2f} mm")
-
-            st.subheader("데이터 미리보기")
-            st.dataframe(growth_df, width="stretch")
         except Exception as e:
             st.warning(f"⚠️ 이 부분은 데이터 형식 때문에 표시하지 못했어요: {e}")
 
@@ -168,14 +165,6 @@ else:
 
             if "생중량" not in growth_df.columns:
                 st.info("생중량 열이 없어 지상부 질량과 지하부 질량을 더해 계산했어요.")
-
-            if "생중량" in growth_df.columns:
-                top5 = growth_df.nlargest(5, "생중량")
-                bottom5 = growth_df.nsmallest(5, "생중량")
-                st.subheader("생중량 상위 5개 개체")
-                st.dataframe(top5[["개체번호", "잎 수", "지상부 길이", "지하부 길이", "생중량"]], width="stretch")
-                st.subheader("생중량 하위 5개 개체")
-                st.dataframe(bottom5[["개체번호", "잎 수", "지상부 길이", "지하부 길이", "생중량"]], width="stretch")
 
             st.subheader("지하부 길이 vs 잎 수")
             if "잎 수" in growth_df.columns and "지하부 길이" in growth_df.columns:
