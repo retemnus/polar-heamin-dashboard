@@ -145,9 +145,6 @@ def interpret_r(r):
     else:
         return "강한 양의 상관관계"
 
-def format_eq(slope, intercept, unit=""):
-    return f"지하부 길이 = {slope:.3f} × {unit} + {intercept:.3f}"
-
 if growth_df.empty:
     st.info("생육 결과 CSV 파일을 업로드하면 분석 결과를 볼 수 있어요.")
 else:
@@ -230,17 +227,51 @@ else:
     with tab3:
         try:
             st.header("🏠 실생활 대입")
+
             st.subheader("핵심 인사이트")
             if "잎 수" in growth_df.columns and "지하부 길이" in growth_df.columns:
                 a1, b1, r1, r2_1 = analyze_relationship(growth_df["잎 수"], growth_df["지하부 길이"])
             if "지상부 길이" in growth_df.columns and "지하부 길이" in growth_df.columns:
                 a2, b2, r2, r2_2 = analyze_relationship(growth_df["지상부 길이"], growth_df["지하부 길이"])
+            if "지상부 질량" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                a3, b3, r3, r2_3 = analyze_relationship(growth_df["지상부 질량"], growth_df["지하부 길이"])
 
             st.write("- **지상부·지하부 상관관계**: 지상부 길이가 길수록 지하부 길이도 길어져요. 식물의 지상부와 지하부는 함께 자라는 경향이 있어요.")
             if r2 is not None and r2 >= 0.7:
                 st.write(f"- **강한 양의 상관관계 확인**: 지상부 길이와 지하부 길이의 상관계수는 **{r2:.2f}** (R² = {r2_2:.2f})로 매우 강한 양의 상관관계를 보여요.")
             elif r2 is not None:
                 st.write(f"- **상관관계 확인**: 지상부 길이와 지하부 길이의 상관계수는 **{r2:.2f}** (R² = {r2_2:.2f})로 양의 상관관계가 있어요.")
+
+            st.subheader("지상부 요소별 지하부 길이 예측력 비교 (이 데이터 기준)")
+            if "지상부 질량" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                if "잎 수" in growth_df.columns:
+                    _, _, r_leaves, _ = analyze_relationship(growth_df["잎 수"], growth_df["지하부 길이"])
+                    st.write(f"- 잎 수와 지하부 길이: 상관계수 **r = {r_leaves:.3f}**")
+                if "지상부 길이" in growth_df.columns:
+                    _, _, r_shoot_length, _ = analyze_relationship(growth_df["지상부 길이"], growth_df["지하부 길이"])
+                    st.write(f"- 지상부 길이와 지하부 길이: 상관계수 **r = {r_shoot_length:.3f}**")
+                if "지상부 질량" in growth_df.columns:
+                    _, _, r_shoot_mass, _ = analyze_relationship(growth_df["지상부 질량"], growth_df["지하부 길이"])
+                    st.write(f"- 지상부 질량과 지하부 길이: 상관계수 **r = {r_shoot_mass:.3f}**")
+
+                st.write("**어떤 지상부 요소를 고려할까? (데이터 기반 추천)**")
+                corr_items = []
+                if "잎 수" in growth_df.columns:
+                    corr_items.append(("잎 수", r_leaves))
+                if "지상부 길이" in growth_df.columns:
+                    corr_items.append(("지상부 길이", r_shoot_length))
+                if "지상부 질량" in growth_df.columns:
+                    corr_items.append(("지상부 질량", r_shoot_mass))
+
+                if corr_items:
+                    best_name, best_r = max(corr_items, key=lambda x: abs(x[1]))
+                    worst_name, worst_r = min(corr_items, key=lambda x: abs(x[1]))
+                    st.write(f"- 지하부 길이 예측에 가장 영향력 큰 요소: **{best_name}** (r = {best_r:.3f})")
+                    st.write(f"- 상대적으로 예측력이 낮은 요소: **{worst_name}** (r = {worst_r:.3f})")
+                    st.write(f"- 따라서 지상부 중 **{best_name}**을/를 핵심 지표로 삼아 지하부 상태를 추정하는 것이 유리해요.")
+                    if "지상부 질량" in growth_df.columns and "지상부 길이" in growth_df.columns:
+                        _, _, r_mass, _ = analyze_relationship(growth_df["지상부 질량"], growth_df["지하부 길이"])
+                        st.write(f"- 지상부 질량은 지하부 길이와의 상관관계가 **r = {r_mass:.3f}**로 {'상대적으로 보통' if abs(r_mass) < 0.7 else '매우 강한'} 편이에요.")
 
             st.subheader("스마트팜 작물 생육 진단·관리 대입")
             st.write("""
