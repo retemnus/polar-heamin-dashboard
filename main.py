@@ -92,14 +92,29 @@ else:
 
 school_name = growth_file.name.split(".")[0] if growth_file is not None else ""
 
+def analyze_relationship(x, y):
+    mask = x.notna() & y.notna()
+    x_clean = x[mask]
+    y_clean = y[mask]
+    if len(x_clean) < 2:
+        return None, None, None, None
+    slope, intercept = np.polyfit(x_clean, y_clean, 1)
+    r = np.corrcoef(x_clean, y_clean)[0, 1]
+    r2 = r ** 2
+    return slope, intercept, r, r2
+
 def add_trendline(x, y, point_color="steelblue"):
     mask = x.notna() & y.notna()
     x_clean = x[mask]
     y_clean = y[mask]
     if len(x_clean) < 2:
-        return None
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=[], y=[], mode="markers", showlegend=False))
+        fig.update_layout(font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif"))
+        return fig, None, None, None, None
     slope, intercept = np.polyfit(x_clean, y_clean, 1)
     r = np.corrcoef(x_clean, y_clean)[0, 1]
+    r2 = r ** 2
     x_range = np.linspace(x_clean.min(), x_clean.max(), 100)
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -111,7 +126,7 @@ def add_trendline(x, y, point_color="steelblue"):
     fig.add_trace(go.Scatter(
         x=x_range, y=slope * x_range + intercept,
         mode="lines",
-        name=f"추세선 (r={r:.2f})",
+        name=f"추세선 (r={r:.2f}, R²={r2:.2f})",
         line=dict(color="red", dash="dash", width=2)
     ))
     fig.update_layout(
@@ -120,7 +135,18 @@ def add_trendline(x, y, point_color="steelblue"):
         yaxis_title="",
         font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif")
     )
-    return fig
+    return fig, slope, intercept, r, r2
+
+def interpret_r(r):
+    if r < 0.3:
+        return "매우 약한 양의 상관관계"
+    elif r < 0.7:
+        return "중간 정도의 양의 상관관계"
+    else:
+        return "강한 양의 상관관계"
+
+def format_eq(slope, intercept, unit=""):
+    return f"지하부 길이 = {slope:.3f} × {unit} + {intercept:.3f}"
 
 if growth_df.empty:
     st.info("생육 결과 CSV 파일을 업로드하면 분석 결과를 볼 수 있어요.")
@@ -155,6 +181,21 @@ else:
                 st.metric("평균 지상부 길이", f"{avg_shoot:.2f} mm")
             with c4:
                 st.metric("평균 지하부 길이", f"{avg_root:.2f} mm")
+
+            st.subheader("주요 분석 결과")
+            if "잎 수" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                a1, b1, r1, r2_1 = analyze_relationship(growth_df["잎 수"], growth_df["지하부 길이"])
+                if a1 is not None:
+                    st.write(f"**잎 수 vs 지하부 길이**: 상관계수 r = `{r1:.3f}`, 결정계수 R² = `{r2_1:.3f}`")
+                    st.write(f"**회귀식**: 지하부 길이 = {a1:.3f} × 잎 수 + {b1:.3f}")
+                    st.write(f"**해석**: 잎 수와 지하부 길이의 관계는 {interpret_r(r1)} (r = {r1:.3f}).")
+
+            if "지상부 길이" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                a2, b2, r2, r2_2 = analyze_relationship(growth_df["지상부 길이"], growth_df["지하부 길이"])
+                if a2 is not None:
+                    st.write(f"**지상부 길이 vs 지하부 길이**: 상관계수 r = `{r2:.3f}`, 결정계수 R² = `{r2_2:.3f}`")
+                    st.write(f"**회귀식**: 지하부 길이 = {a2:.3f} × 지상부 길이 + {b2:.3f}")
+                    st.write(f"**해석**: 지상부 길이와 지하부 길이의 관계는 {interpret_r(r2)} (r = {r2:.3f}).")
         except Exception as e:
             st.warning(f"⚠️ 이 부분은 데이터 형식 때문에 표시하지 못했어요: {e}")
 
@@ -167,28 +208,22 @@ else:
                 st.info("생중량 열이 없어 지상부 질량과 지하부 질량을 더해 계산했어요.")
 
             st.subheader("지하부 길이 vs 잎 수")
-            if "잎 수" in growth_df.columns and "지하부 길이" in growth_df.columns:
-                fig1 = add_trendline(growth_df["잎 수"], growth_df["지하부 길이"], point_color="seagreen")
-                st.plotly_chart(fig1, width="stretch")
-                valid = growth_df[["잎 수", "지하부 길이"]].dropna()
-                if len(valid) >= 2:
-                    r1 = np.corrcoef(valid["잎 수"], valid["지하부 길이"])[0, 1]
-                    st.write(f"**해석**: 상관계수는 약 {r1:.2f}로 양의 상관관계가 크지 않아요. 잎 수가 많아도 지하부 길이가 반드시 긴 것은 아니에요.")
-            else:
-                st.info("잎 수 또는 지하부 길이 열이 없어 그래프를 표시하지 않아요.")
+            fig1, a1, b1, r1, r2_1 = add_trendline(growth_df["잎 수"], growth_df["지하부 길이"], point_color="seagreen")
+            st.plotly_chart(fig1, width="stretch")
+            if a1 is not None:
+                st.write(f"**회귀식**: 지하부 길이 = {a1:.3f} × 잎 수 + {b1:.3f}")
+                st.write(f"**상관계수**: r = {r1:.3f}, 결정계수 R² = {r2_1:.3f}")
+                st.write(f"**해석**: 잎 수와 지하부 길이의 관계는 {interpret_r(r1)} (r = {r1:.3f}).")
 
             st.divider()
 
             st.subheader("지하부 길이 vs 지상부 길이")
-            if "지상부 길이" in growth_df.columns and "지하부 길이" in growth_df.columns:
-                fig2 = add_trendline(growth_df["지상부 길이"], growth_df["지하부 길이"], point_color="orange")
-                st.plotly_chart(fig2, width="stretch")
-                valid = growth_df[["지상부 길이", "지하부 길이"]].dropna()
-                if len(valid) >= 2:
-                    r2 = np.corrcoef(valid["지상부 길이"], valid["지하부 길이"])[0, 1]
-                    st.write(f"**해석**: 상관계수는 약 {r2:.2f}로 강한 양의 상관관계를 보여요. 지상부 길이가 길수록 지하부 길이도 길어지는 경향이 있어요.")
-            else:
-                st.info("지상부 길이 또는 지하부 길이 열이 없어 그래프를 표시하지 않아요.")
+            fig2, a2, b2, r2, r2_2 = add_trendline(growth_df["지상부 길이"], growth_df["지하부 길이"], point_color="orange")
+            st.plotly_chart(fig2, width="stretch")
+            if a2 is not None:
+                st.write(f"**회귀식**: 지하부 길이 = {a2:.3f} × 지상부 길이 + {b2:.3f}")
+                st.write(f"**상관계수**: r = {r2:.3f}, 결정계수 R² = {r2_2:.3f}")
+                st.write(f"**해석**: 지상부 길이와 지하부 길이의 관계는 {interpret_r(r2)} (r = {r2:.3f}).")
         except Exception as e:
             st.warning(f"⚠️ 이 부분은 데이터 형식 때문에 표시하지 못했어요: {e}")
 
@@ -196,10 +231,16 @@ else:
         try:
             st.header("🏠 실생활 대입")
             st.subheader("핵심 인사이트")
-            st.write("""
-            - **지상부·지하부 강한 양의 상관관계**: 지상부 길이가 길수록 지하부 길이도 길어져요. 식물의 지상부와 지하부는 함께 자라는 경향이 있어요.
-            - **지상부 관찰로 지하부 추정 가능**: 지상부 생육이 활발한 개체는 지하부 생육도 활발할 가능성이 높아요.
-            """)
+            if "잎 수" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                a1, b1, r1, r2_1 = analyze_relationship(growth_df["잎 수"], growth_df["지하부 길이"])
+            if "지상부 길이" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                a2, b2, r2, r2_2 = analyze_relationship(growth_df["지상부 길이"], growth_df["지하부 길이"])
+
+            st.write("- **지상부·지하부 상관관계**: 지상부 길이가 길수록 지하부 길이도 길어져요. 식물의 지상부와 지하부는 함께 자라는 경향이 있어요.")
+            if r2 is not None and r2 >= 0.7:
+                st.write(f"- **강한 양의 상관관계 확인**: 지상부 길이와 지하부 길이의 상관계수는 **{r2:.2f}** (R² = {r2_2:.2f})로 매우 강한 양의 상관관계를 보여요.")
+            elif r2 is not None:
+                st.write(f"- **상관관계 확인**: 지상부 길이와 지하부 길이의 상관계수는 **{r2:.2f}** (R² = {r2_2:.2f})로 양의 상관관계가 있어요.")
 
             st.subheader("스마트팜 작물 생육 진단·관리 대입")
             st.write("""
