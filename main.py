@@ -221,6 +221,19 @@ else:
                 st.write(f"**회귀식**: 지하부 길이 = {a2:.3f} × 지상부 길이 + {b2:.3f}")
                 st.write(f"**상관계수**: r = {r2:.3f}, 결정계수 R² = {r2_2:.3f}")
                 st.write(f"**해석**: 지상부 길이와 지하부 길이의 관계는 {interpret_r(r2)} (r = {r2:.3f}).")
+
+            st.divider()
+
+            st.subheader("지하부 길이 vs 지상부 질량")
+            if "지상부 질량" in growth_df.columns and "지하부 길이" in growth_df.columns:
+                fig_mass, am, bm, rm, r2_mass = add_trendline(growth_df["지상부 질량"], growth_df["지하부 길이"], point_color="purple")
+                st.plotly_chart(fig_mass, width="stretch")
+                if am is not None:
+                    st.write(f"**회귀식**: 지하부 길이 = {am:.3f} × 지상부 질량 + {bm:.3f}")
+                    st.write(f"**상관계수**: r = {rm:.3f}, 결정계수 R² = {r2_mass:.3f}")
+                    st.write(f"**해석**: 지상부 질량과 지하부 길이의 관계는 {interpret_r(rm)} (r = {rm:.3f}).")
+            else:
+                st.info("지상부 질량 또는 지하부 길이 열이 없어 그래프를 표시하지 않아요.")
         except Exception as e:
             st.warning(f"⚠️ 이 부분은 데이터 형식 때문에 표시하지 못했어요: {e}")
 
